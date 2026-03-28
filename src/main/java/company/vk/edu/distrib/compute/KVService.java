@@ -22,7 +22,6 @@ package company.vk.edu.distrib.compute;
  * <li>{@code 4xx} for malformed requests</li>
  * <li>{@code 5xx} for internal errors</li>
  * </ul>
- *
  */
 public interface KVService {
     /**
