@@ -41,8 +41,8 @@ public class MemoryDao implements Dao<byte[]> {
     }
 
     private void validateValue(byte[] value) {
-        if (value == null || value.length == 0) {
-            throw new IllegalArgumentException("Value must not be null or empty");
+        if (value == null) {
+            throw new IllegalArgumentException("Value must not be null");
         }
     }
 }

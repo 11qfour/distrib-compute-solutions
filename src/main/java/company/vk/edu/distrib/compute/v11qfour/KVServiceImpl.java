@@ -31,24 +31,17 @@ public class KVServiceImpl implements KVService {
         try {
             server = HttpServer.create(address, 0);
             server.createContext("/v0/status", exchange -> {
-                try {
+                try (exchange) {
                     exchange.sendResponseHeaders(200, -1);
-                } finally {
-                    exchange.close();
+                } catch (IOException e) {
+                    log.error("Status error", e);
                 }
             });
             server.createContext("/v0/entity", exchange -> {
-                try {
+                try (exchange) {
                     handleEntityRequest(exchange);
-                } catch (Exception e) {
-                    log.error("Error handling request", e);
-                    try {
-                        exchange.sendResponseHeaders(500, -1);
-                    } catch (IOException ignore) {
-                        // ignore
-                    }
-                } finally {
-                    exchange.close();
+                } catch (IOException e) {
+                    log.error("Entity error", e);
                 }
             });
             server.start();
@@ -69,17 +62,7 @@ public class KVServiceImpl implements KVService {
             exchange.sendResponseHeaders(400, -1);
             return;
         }
-        String id = null;
-        for (String param : query.split("&")) {
-            if (param.startsWith("id=")) {
-                id = param.substring(3);
-                break;
-            }
-        }
-        if (id == null || id.isEmpty()) {
-            exchange.sendResponseHeaders(400, -1);
-            return;
-        }
+        String id = validateId(exchange, query);
         String method = exchange.getRequestMethod();
         switch (method) {
             case "GET" -> {
@@ -108,6 +91,20 @@ public class KVServiceImpl implements KVService {
                 exchange.sendResponseHeaders(405, -1);
             }
         }
+    }
+
+    private String validateId(HttpExchange exchange, String query) throws IOException {
+        String id = null;
+        for (String param : query.split("&")) {
+            if (param.startsWith("id=")) {
+                id = param.substring(3);
+                break;
+            }
+        }
+        if (id == null || id.isEmpty()) {
+            exchange.sendResponseHeaders(400, -1);
+        }
+        return id;
     }
 
     private InetSocketAddress createInetSocketAddress(int port) {
