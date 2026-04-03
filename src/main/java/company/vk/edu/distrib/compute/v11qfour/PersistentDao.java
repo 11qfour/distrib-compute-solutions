@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -27,7 +28,16 @@ public class PersistentDao implements Dao<byte[]> {
     private Path getFilePath(String key) {
         validateKey(key);
         String saveFileName = Base64.getUrlEncoder().encodeToString(key.getBytes(StandardCharsets.UTF_8));
-        return STORAGE_DIR.resolve(saveFileName);
+        String prefix = saveFileName.substring(0, Math.min(2, saveFileName.length()));
+        Path dir = STORAGE_DIR.resolve(prefix);
+        try {
+            if (!Files.exists(dir)) {
+                Files.createDirectories(dir);
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        return dir.resolve(saveFileName);
     }
 
     @Override
