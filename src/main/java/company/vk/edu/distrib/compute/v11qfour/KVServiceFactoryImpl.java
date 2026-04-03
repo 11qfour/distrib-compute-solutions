@@ -9,7 +9,7 @@ import java.io.IOException;
 public class KVServiceFactoryImpl extends KVServiceFactory {
     @Override
     protected KVService doCreate(int port) throws IOException {
-        Dao<byte[]> dao = new MemoryDao();
+        Dao<byte[]> dao = new PersistentDao();
         return new KVServiceImpl(port, dao);
     }
 }
