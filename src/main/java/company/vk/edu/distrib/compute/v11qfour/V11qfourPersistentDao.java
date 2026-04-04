@@ -13,12 +13,14 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.Base64;
 import java.util.NoSuchElementException;
+import java.util.concurrent.locks.ReentrantLock;
 
-public class PersistentDao implements Dao<byte[]> {
+public class V11qfourPersistentDao implements Dao<byte[]> {
     private static final Path STORAGE_DIR = Path.of(".data-11qfour");
-    private static final Logger log = LoggerFactory.getLogger(PersistentDao.class);
+    private static final Logger log = LoggerFactory.getLogger(V11qfourPersistentDao.class);
+    private final ReentrantLock lock = new ReentrantLock();
 
-    public PersistentDao() throws IOException {
+    public V11qfourPersistentDao() throws IOException {
         if (!Files.exists(STORAGE_DIR)) {
             log.debug("Data storage does not exist yet, but will be created");
             Files.createDirectories(STORAGE_DIR);
@@ -50,20 +52,29 @@ public class PersistentDao implements Dao<byte[]> {
     }
 
     @Override
-    public synchronized void upsert(String key, byte[] value) throws IllegalArgumentException, IOException {
+    public void upsert(String key, byte[] value) throws IllegalArgumentException, IOException {
         validateValue(value);
         Path finalPath = getFilePath(key);
         Path tempPath = finalPath.resolveSibling(finalPath.getFileName() + ".tmp");
-        // Rewrite in temp file
-        Files.write(tempPath, value, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-        // Atomic rename, the file will not be half-written
-        Files.move(tempPath, finalPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+
+        lock.lock();
+        try {
+            Files.write(tempPath, value, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            Files.move(tempPath, finalPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+        } finally {
+            lock.unlock();
+        }
     }
 
     @Override
-    public synchronized void delete(String key) throws IllegalArgumentException, IOException {
+    public void delete(String key) throws IllegalArgumentException, IOException {
         Path filePath = getFilePath(key);
-        Files.deleteIfExists(filePath);
+        lock.lock();
+        try {
+            Files.deleteIfExists(filePath);
+        } finally {
+            lock.unlock();
+        }
     }
 
     @Override

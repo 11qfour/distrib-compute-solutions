@@ -12,15 +12,15 @@ import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
 
-public class KVServiceImpl implements KVService {
-    private static final Logger log = LoggerFactory.getLogger(KVServiceImpl.class);
+public class V11qfourKVServiceFactory implements KVService {
+    private static final Logger log = LoggerFactory.getLogger(V11qfourKVServiceFactory.class);
     private static final int MIN_PORT = 1;
     private static final int MAX_PORT = 65535;
     private HttpServer server;
     private final InetSocketAddress address;
     private final Dao<byte[]> dao;
 
-    public KVServiceImpl(int port, Dao<byte[]> dao) {
+    public V11qfourKVServiceFactory(int port, Dao<byte[]> dao) {
         this.dao = dao;
         this.address = createInetSocketAddress(port);
     }

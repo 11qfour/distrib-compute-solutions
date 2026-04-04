@@ -7,7 +7,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class MemoryDao implements Dao<byte[]> {
+public class V11qfourMemoryDao implements Dao<byte[]> {
     private final Map<String, byte[]> storage = new ConcurrentHashMap<>();
 
     @Override

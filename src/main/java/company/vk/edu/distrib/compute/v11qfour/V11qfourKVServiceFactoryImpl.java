@@ -6,10 +6,10 @@ import company.vk.edu.distrib.compute.KVServiceFactory;
 
 import java.io.IOException;
 
-public class KVServiceFactoryImpl extends KVServiceFactory {
+public class V11qfourKVServiceFactoryImpl extends KVServiceFactory {
     @Override
     protected KVService doCreate(int port) throws IOException {
-        Dao<byte[]> dao = new PersistentDao();
-        return new KVServiceImpl(port, dao);
+        Dao<byte[]> dao = new V11qfourPersistentDao();
+        return new V11qfourKVServiceFactory(port, dao);
     }
 }
