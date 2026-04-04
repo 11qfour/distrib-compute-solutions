@@ -114,6 +114,6 @@ public class KVServiceImpl implements KVService {
             log.error("Port must be in range 1 to 65535");
             throw new IllegalArgumentException("Port must be in range 1 to 65535");
         }
-        return new InetSocketAddress(InetAddress.getLoopbackAddress(), port);
+        return new InetSocketAddress(port);
     }
 }
