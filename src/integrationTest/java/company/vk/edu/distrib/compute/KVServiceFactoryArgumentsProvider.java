@@ -23,7 +23,7 @@ public class KVServiceFactoryArgumentsProvider implements ArgumentsProvider {
         Vitos23KVServiceFactory.class,
         NihuawayKVServiceFactory.class,
         B10nicleKVServiceFactory.class,
-        V11qfourKVServiceFactoryImpl.class,
+        V11qfourKVServiceFactoryImpl.class
     );
 
     @Override
