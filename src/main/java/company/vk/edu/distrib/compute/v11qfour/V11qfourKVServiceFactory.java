@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
+import java.util.NoSuchElementException;
 
 public class V11qfourKVServiceFactory implements KVService {
     private static final Logger log = LoggerFactory.getLogger(V11qfourKVServiceFactory.class);
@@ -71,14 +72,14 @@ public class V11qfourKVServiceFactory implements KVService {
     }
 
     private void handleGet(HttpExchange exchange, String id) throws IOException {
-        byte[] value = dao.get(id);
-        if (value == null) {
-            exchange.sendResponseHeaders(404, -1);
-        } else {
+        try {
+            byte[] value = dao.get(id);
             exchange.sendResponseHeaders(200, value.length);
             try (OutputStream os = exchange.getResponseBody()) {
                 os.write(value);
             }
+        } catch (NoSuchElementException e) {
+            exchange.sendResponseHeaders(404, -1);
         }
     }
 

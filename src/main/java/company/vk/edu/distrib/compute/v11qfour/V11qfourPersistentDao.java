@@ -46,7 +46,7 @@ public class V11qfourPersistentDao implements Dao<byte[]> {
     public byte[] get(String key) throws NoSuchElementException, IllegalArgumentException, IOException {
         Path filePath = getFilePath(key);
         if (!Files.exists(filePath)) {
-            return null;
+            throw new NoSuchElementException("No value for key: " + key);
         }
         return Files.readAllBytes(filePath);
     }
