@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class FileSystemDaoImpl implements Dao<byte[]> {
 
@@ -15,15 +16,15 @@ public class FileSystemDaoImpl implements Dao<byte[]> {
             + "/company/vk/edu/distrib/compute/vredakon/storage/";
 
     private final Logger log = LoggerFactory.getLogger("FileSystemDao");
-    private boolean isClosed;
+    private final AtomicBoolean isClosed;
 
     public FileSystemDaoImpl() {
-        this.isClosed = false;
+        this.isClosed = new AtomicBoolean(false);
     }
 
     @Override
     public byte[] get(String key) throws IOException {
-        if (!isClosed) {
+        if (!isClosed.get()) {
             return Files.readAllBytes(Path.of(STORAGE_PATH, key));
         }
         throw new IllegalStateException("Resource is closed");
@@ -31,7 +32,7 @@ public class FileSystemDaoImpl implements Dao<byte[]> {
 
     @Override
     public void upsert(String key, byte[] value) throws IOException {
-        if (!isClosed) {
+        if (!isClosed.get()) {
             Files.write(Path.of(STORAGE_PATH, key), value);
             return;
         }
@@ -40,7 +41,7 @@ public class FileSystemDaoImpl implements Dao<byte[]> {
 
     @Override
     public void delete(String key) throws IOException {
-        if (!isClosed) {
+        if (!isClosed.get()) {
             Files.deleteIfExists(Path.of(STORAGE_PATH, key));
             return;
         }
@@ -49,8 +50,7 @@ public class FileSystemDaoImpl implements Dao<byte[]> {
 
     @Override
     public void close() throws IOException {
-        if (!isClosed) {
-            isClosed = true;
+        if (isClosed.compareAndSet(false, true)) {
             return;
         }
         log.error("Resource is already closed");
