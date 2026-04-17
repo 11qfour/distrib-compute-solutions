@@ -59,7 +59,6 @@ public class V11qfourKVServiceFactory implements KVService {
                     log.error("Entity error", e);
                 }
             });
-            server.setExecutor(Executors.newFixedThreadPool(10));
             server.start();
         } catch (IOException exception) {
             log.error("Server is failed to start jn {}", address, exception);
