@@ -41,7 +41,7 @@ abstract class TestBase {
     static boolean isTcpPortAvailable(int port) {
         try (ServerSocket serverSocket = new ServerSocket()) {
             serverSocket.setReuseAddress(false);
-            serverSocket.bind(new InetSocketAddress(InetAddress.getByName("localhost"), port), 1);
+            serverSocket.bind(new InetSocketAddress(port), 1);
             return true;
         } catch (Exception ex) {
             return false;
