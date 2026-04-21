@@ -21,8 +21,8 @@ abstract class TestBase {
     public static final Duration TIMEOUT = Duration.ofSeconds(5);
 
     static int randomPort() {
-        for (int i = 0; i < 10_000; i++) {
-            int port = ThreadLocalRandom.current().nextInt(10000, 60000);
+        for (int i = 0; i < 100_000; i++) {
+            final var port = ThreadLocalRandom.current().nextInt(10000, 60000);
             if (isTcpPortAvailable(port)) {
                 return port;
             }
