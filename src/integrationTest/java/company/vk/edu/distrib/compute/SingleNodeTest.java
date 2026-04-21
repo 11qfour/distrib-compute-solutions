@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @ParameterizedClass
 @ArgumentsSource(KVServiceFactoryArgumentsProvider.class)
-class SingleV11qfourNodeTest extends TestBase {
+class SingleNodeTest extends TestBase {
 
     static final HttpClient HTTP_CLIENT = HttpClient.newHttpClient();
 
