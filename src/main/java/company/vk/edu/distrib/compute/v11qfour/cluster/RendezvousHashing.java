@@ -24,6 +24,19 @@ public class RendezvousHashing implements V11qfourRoutingStrategy {
         return bestNode;
     }
 
+    @Override
+    public List<V11qfourNode> getResponsibleNodes(String key, List<V11qfourNode> allNodes, int n) {
+        validateKey(key);
+        return allNodes.stream()
+                .sorted((node1, node2) -> {
+                    long hash1 = getCurrentHash(key + '|' + node1);
+                    long hash2 = getCurrentHash(key + '|' + node2);
+                    return Long.compare(hash2, hash1);
+                })
+                .limit(n)
+                .toList();
+    }
+
     private long getCurrentHash(String s) {
         try {
             MessageDigest messageDigest = MessageDigest.getInstance(HASH_ALGORITHM);

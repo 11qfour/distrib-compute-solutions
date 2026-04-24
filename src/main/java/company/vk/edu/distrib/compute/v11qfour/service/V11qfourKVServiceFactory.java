@@ -7,6 +7,7 @@ import company.vk.edu.distrib.compute.KVService;
 import company.vk.edu.distrib.compute.v11qfour.cluster.V11qfourNode;
 import company.vk.edu.distrib.compute.v11qfour.cluster.V11qfourRoutingStrategy;
 import company.vk.edu.distrib.compute.v11qfour.proxy.V11qfourProxyClient;
+import company.vk.edu.distrib.compute.v11qfour.replica.V11qfourReplicator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,19 +26,25 @@ public class V11qfourKVServiceFactory implements KVService {
     private final V11qfourProxyClient proxyClient;
     private final V11qfourRoutingStrategy routingStrategy;
     private final List<V11qfourNode> clusterNodes;
+    private final int amountN;
+    private final V11qfourReplicator replicator;
 
     public V11qfourKVServiceFactory(int port,
                                     Dao<byte[]> dao,
                                     V11qfourRoutingStrategy routingStrategy,
                                     List<V11qfourNode> clusterNodes,
                                     String selfUrl,
-                                    V11qfourProxyClient proxyClient) {
+                                    V11qfourProxyClient proxyClient,
+                                    int amountN,
+                                    V11qfourReplicator replicator) {
         this.dao = dao;
         this.routingStrategy = routingStrategy;
         this.clusterNodes = clusterNodes;
         this.selfUrl = selfUrl;
         this.proxyClient = proxyClient;
         this.address = createInetSocketAddress(port);
+        this.amountN = amountN;
+        this.replicator = replicator;
     }
 
     @Override
@@ -73,45 +80,102 @@ public class V11qfourKVServiceFactory implements KVService {
     private void handleEntityRequest(HttpExchange exchange) throws IOException {
         String query = exchange.getRequestURI().getQuery();
         String id = validateId(query);
+        int ack = parseAck(query);
+
         if (id == null) {
             exchange.sendResponseHeaders(400, -1);
             return;
         }
-        V11qfourNode responsibleNode = routingStrategy.getResponsibleNode(id, clusterNodes);
-        if (responsibleNode.url().equals(selfUrl)) {
-            switch (exchange.getRequestMethod()) {
-                case "GET" -> handleGet(exchange, id);
-                case "PUT" -> handlePut(exchange, id);
-                case "DELETE" -> handleDelete(exchange, id);
-                default -> exchange.sendResponseHeaders(405, -1);
+        List<V11qfourNode> targetNodes = routingStrategy.getResponsibleNodes(id, clusterNodes, amountN);
+
+        if (ack > amountN) {
+            exchange.sendResponseHeaders(400, -1);
+            return;
+        }
+
+        boolean isReplica = targetNodes.stream().anyMatch(node -> node.url().equals(selfUrl));
+
+        if (isReplica) {
+            handleWithReplication(exchange, id, targetNodes, ack);
+        } else {
+            proxyClient.proxy(exchange, targetNodes.get(0));
+        }
+    }
+
+    private void handleWithReplication(HttpExchange exchange, String id,
+                                       List<V11qfourNode> targetNodes, int ack) throws IOException {
+        String method = exchange.getRequestMethod();
+        byte[] body = null;
+        if ("PUT".equals(method)) {
+            body = exchange.getRequestBody().readAllBytes();
+        }
+        LocalResult local = performLocalOperation(id, method, body);
+
+        List<V11qfourNode> otherNodes = targetNodes.stream()
+                .filter(n -> !n.url().equals(selfUrl))
+                .toList();
+
+        boolean remoteSuccess = true;
+        if (ack > 1 && !otherNodes.isEmpty()) {
+            remoteSuccess = replicator.sendWithAck(exchange.getRequestURI().toString(),
+                    method, body, otherNodes, ack - 1).join();
+        }
+
+        if (local.success && remoteSuccess) {
+            int responseCode = switch (method) {
+                case "PUT" -> 201;
+                case "DELETE" -> 202;
+                case "GET" -> 200;
+                default -> 200;
+            };
+
+            if ("GET".equals(method) && local.data != null) {
+                exchange.sendResponseHeaders(responseCode, local.data.length);
+                try (OutputStream os = exchange.getResponseBody()) {
+                    os.write(local.data);
+                }
+            } else {
+                exchange.sendResponseHeaders(responseCode, -1);
             }
         } else {
-            proxyClient.proxy(exchange, responsibleNode);
+            if ("GET".equals(method) && local.notFound) {
+                exchange.sendResponseHeaders(404, -1);
+            } else {
+                exchange.sendResponseHeaders(503, -1);
+            }
         }
     }
 
-    private void handleGet(HttpExchange exchange, String id) throws IOException {
+    private final class LocalResult {
+        boolean success;
+        boolean notFound;
+        byte[] data;
+    }
+
+    private LocalResult performLocalOperation(String id, String method, byte[] body) {
+        LocalResult result = new LocalResult();
         try {
-            byte[] value = dao.get(id);
-            exchange.sendResponseHeaders(200, value.length);
-            try (OutputStream os = exchange.getResponseBody()) {
-                os.write(value);
+            switch (method) {
+                case "GET" -> {
+                    result.data = dao.get(id);
+                    result.success = true;
+                }
+                case "PUT" -> {
+                    dao.upsert(id, body);
+                    result.success = true;
+                }
+                case "DELETE" -> {
+                    dao.delete(id);
+                    result.success = true;
+                }
+                default -> log.warn("Unsupported method: {}", method);
             }
         } catch (NoSuchElementException e) {
-            exchange.sendResponseHeaders(404, -1);
+            result.notFound = true;
+        } catch (Exception e) {
+            result.success = false;
         }
-    }
-
-    private void handlePut(HttpExchange exchange, String id) throws IOException {
-        try (var is = exchange.getRequestBody()) {
-            dao.upsert(id, is.readAllBytes());
-        }
-        exchange.sendResponseHeaders(201, -1);
-    }
-
-    private void handleDelete(HttpExchange exchange, String id) throws IOException {
-        dao.delete(id);
-        exchange.sendResponseHeaders(202, -1);
+        return result;
     }
 
     private String validateId(String query) throws IOException {
@@ -125,6 +189,22 @@ public class V11qfourKVServiceFactory implements KVService {
             }
         }
         return null;
+    }
+
+    private int parseAck(String query) {
+        if (query == null || !query.contains("ack=")) {
+            return 1;
+        }
+        for (String param : query.split("&")) {
+            if (param.startsWith("ack=")) {
+                try {
+                    return Integer.parseInt(param.substring(4));
+                } catch (NumberFormatException e) {
+                    return 1;
+                }
+            }
+        }
+        return 1;
     }
 
     private InetSocketAddress createInetSocketAddress(int port) {

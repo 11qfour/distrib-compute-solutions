@@ -4,10 +4,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.List;
-import java.util.Map;
-import java.util.NavigableMap;
-import java.util.TreeMap;
+import java.util.*;
 
 public class ConsistentHashing implements V11qfourRoutingStrategy {
     private final NavigableMap<Long, V11qfourNode> circle = new TreeMap<>();
@@ -48,5 +45,44 @@ public class ConsistentHashing implements V11qfourRoutingStrategy {
         }
 
         return entry.getValue();
+    }
+
+    @Override
+    public List<V11qfourNode> getResponsibleNodes(String key, List<V11qfourNode> allNodes, int n) {
+        if (circle.isEmpty()) {
+            throw new IllegalStateException("Cluster is empty");
+        }
+
+        long hash = hash(key);
+        List<V11qfourNode> result = new ArrayList<>();
+
+        SortedMap<Long, V11qfourNode> tailMap = circle.tailMap(hash); //all alements from hash to end of ring
+        Iterator<V11qfourNode> it = new Iterator<>() {
+            private final Iterator<V11qfourNode> tailIt = tailMap.values().iterator();
+            private final Iterator<V11qfourNode> headIt = circle.values().iterator();
+            private boolean useTail = true;
+
+            @Override
+            public boolean hasNext() {
+                return true;
+            }
+
+            @Override
+            public V11qfourNode next() {
+                if (useTail && tailIt.hasNext()) {
+                    return tailIt.next();
+                }
+                useTail = false;
+                return headIt.next();
+            }
+        };
+
+        while (result.size() < n && result.size() < allNodes.size()) {
+            V11qfourNode node = it.next();
+            if (!result.contains(node)) {
+                result.add(node);
+            }
+        }
+        return result;
     }
 }
