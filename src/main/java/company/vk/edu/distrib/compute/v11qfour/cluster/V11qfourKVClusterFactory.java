@@ -25,7 +25,8 @@ public class V11qfourKVClusterFactory {
         }
         V11qfourProxyClient proxyClient = new V11qfourProxyClient();
         V11qfourReplicator replicator = new V11qfourReplicator();
-        int n = Integer.parseInt(System.getProperty("replication.factor", "1"));
+        //int n = Integer.parseInt(System.getProperty("replication.factor", "1"));
+        int n = 3;
         Map<String, KVService> nodesMap = new ConcurrentHashMap<>();
         for (Integer port : ports) {
             String url = "http://localhost:" + port;

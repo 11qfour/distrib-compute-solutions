@@ -15,6 +15,8 @@ import java.util.stream.Collectors;
 public class V11qfourKVServiceFactoryImpl extends KVServiceFactory {
     @Override
     protected KVService doCreate(int port) throws IOException {
+        //int n = Integer.parseInt(System.getProperty("replication.factor", "1"));
+        int n = 3;
         Dao<byte[]> dao = new V11qfourPersistentDao();
         String clusterNodesProp = System.getProperty("cluster.nodes", "http://localhost:" + port);
         List<V11qfourNode> clusterNodes = Arrays.stream(clusterNodesProp.split(","))
@@ -22,7 +24,6 @@ public class V11qfourKVServiceFactoryImpl extends KVServiceFactory {
                 .collect(Collectors.toList());
 
         String selfUrl = "http://localhost:" + port;
-        int n = Integer.parseInt(System.getProperty("replication.factor", "1"));
         V11qfourReplicator replicator = new V11qfourReplicator();
         V11qfourRoutingStrategy routingStrategy = new RendezvousHashing();
         V11qfourProxyClient proxyClient = new V11qfourProxyClient();

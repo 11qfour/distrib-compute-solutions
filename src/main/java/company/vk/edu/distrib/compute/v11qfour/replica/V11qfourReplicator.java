@@ -1,6 +1,8 @@
 package company.vk.edu.distrib.compute.v11qfour.replica;
 
 import company.vk.edu.distrib.compute.v11qfour.cluster.V11qfourNode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -12,16 +14,18 @@ import java.util.concurrent.TimeUnit;
 
 public class V11qfourReplicator {
     private final HttpClient httpClient = HttpClient.newHttpClient();
+    private static final Logger log = LoggerFactory.getLogger(V11qfourReplicator.class);
 
-    public CompletableFuture<Boolean> sendWithAck(String path,
+    public CompletableFuture<Boolean> sendWithAck(String id,
                                                   String method,
                                                   byte[] body,
                                                   List<V11qfourNode> targets,
                                                   int ack) {
         List<CompletableFuture<Integer>> futures = targets.stream()
                 .map(node -> {
+                    String targetUrl = node.url() + "/v0/entity?id=" + id;
                     HttpRequest.Builder builder = HttpRequest.newBuilder()
-                            .uri(URI.create(node.url() + path))
+                            .uri(URI.create(targetUrl))
                             .method(method, body == null
                                     ? HttpRequest.BodyPublishers.noBody() :
                                     HttpRequest.BodyPublishers.ofByteArray(body));
@@ -40,7 +44,7 @@ public class V11qfourReplicator {
                         successCount++;
                     }
                 } catch (Exception e) {
-                    throw new IllegalStateException("Replica not answered or failed", e);
+                    log.error("Not answer from replica", e);
                 }
             }
             return successCount >= ack;

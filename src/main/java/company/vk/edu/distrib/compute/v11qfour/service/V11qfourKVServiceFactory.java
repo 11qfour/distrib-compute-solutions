@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import java.io.*;
 import java.net.*;
 import java.util.*;
+import java.util.concurrent.Executors;
 
 public class V11qfourKVServiceFactory implements KVService {
     private static final Logger log = LoggerFactory.getLogger(V11qfourKVServiceFactory.class);
@@ -51,6 +52,7 @@ public class V11qfourKVServiceFactory implements KVService {
     public void start() {
         try {
             server = HttpServer.create(address, 0);
+            server.setExecutor(Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() * 4));
             server.createContext("/v0/status", exchange -> {
                 try (exchange) {
                     exchange.sendResponseHeaders(200, -1);
@@ -65,6 +67,7 @@ public class V11qfourKVServiceFactory implements KVService {
                     log.error("Entity error", e);
                 }
             });
+            log.info("Service started on port {} with amountN = {}", address.getPort(), amountN);
             server.start();
         } catch (IOException exception) {
             log.error("Server is failed to start jn {}", address, exception);
@@ -111,13 +114,18 @@ public class V11qfourKVServiceFactory implements KVService {
         }
         LocalResult local = performLocalOperation(id, method, body);
 
+        if ("GET".equals(method) && local.notFound) {
+            exchange.sendResponseHeaders(404, -1);
+            return;
+        }
+
         List<V11qfourNode> otherNodes = targetNodes.stream()
                 .filter(n -> !n.url().equals(selfUrl))
                 .toList();
 
         boolean remoteSuccess = true;
         if (ack > 1 && !otherNodes.isEmpty()) {
-            remoteSuccess = replicator.sendWithAck(exchange.getRequestURI().toString(),
+            remoteSuccess = replicator.sendWithAck(id,
                     method, body, otherNodes, ack - 1).join();
         }
 
@@ -138,11 +146,7 @@ public class V11qfourKVServiceFactory implements KVService {
                 exchange.sendResponseHeaders(responseCode, -1);
             }
         } else {
-            if ("GET".equals(method) && local.notFound) {
-                exchange.sendResponseHeaders(404, -1);
-            } else {
-                exchange.sendResponseHeaders(503, -1);
-            }
+            exchange.sendResponseHeaders(503, -1);
         }
     }
 
@@ -168,11 +172,16 @@ public class V11qfourKVServiceFactory implements KVService {
                     dao.delete(id);
                     result.success = true;
                 }
-                default -> log.warn("Unsupported method: {}", method);
+                default -> {
+                    log.warn("Unsupported method: {}", method);
+                    result.success = false;
+                }
             }
         } catch (NoSuchElementException e) {
             result.notFound = true;
+            result.success = !"GET".equals(method);
         } catch (Exception e) {
+            log.error("Local DAO error", e);
             result.success = false;
         }
         return result;
