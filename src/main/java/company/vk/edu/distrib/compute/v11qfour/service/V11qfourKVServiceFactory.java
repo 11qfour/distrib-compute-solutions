@@ -109,13 +109,6 @@ public class V11qfourKVServiceFactory implements KVService {
         }
     }
 
-    private byte[] extractBody(HttpExchange exchange) throws IOException {
-        if (METHOD_PUT.equals(exchange.getRequestMethod())) {
-            return exchange.getRequestBody().readAllBytes();
-        }
-        return null;
-    }
-
     private boolean replicate(String id, String method, byte[] body, List<V11qfourNode> targets, int ack) {
         List<V11qfourNode> others = targets.stream()
                 .filter(n -> !n.url().equals(selfUrl))
@@ -139,7 +132,11 @@ public class V11qfourKVServiceFactory implements KVService {
     private void handleWithReplication(HttpExchange exchange, String id,
                                        List<V11qfourNode> targets, int ack) throws IOException {
         String method = exchange.getRequestMethod();
-        byte[] body = extractBody(exchange);
+
+        byte[] body = null;
+        if (METHOD_PUT.equals(exchange.getRequestMethod())) {
+            body = exchange.getRequestBody().readAllBytes();
+        }
 
         LocalResult local = performLocalOperation(id, method, body);
 
